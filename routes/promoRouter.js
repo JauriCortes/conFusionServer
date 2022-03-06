@@ -1,56 +1,231 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const mongoose = require('mongoose');
 
-const promoRouter = express.Router();
+const promos = require('../models/promotions');
 
-promoRouter.use(bodyParser.json());
+const PromoRouter = express.Router();
 
-promoRouter.route('/')
-.all((req, res, next) => {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    next();
-})
+PromoRouter.use(bodyParser.json());
+
+PromoRouter.route('/')
 .get((req, res, next) => {
-    res.end('Will send all the promotions to you!');
+    promos.find({})
+    .then((promos) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(promos);
+    }, (err) => next(err))
+    .catch((err) => next(err));
 })
 .post((req, res, next) => {
-    res.end('Will add the promo: ' + req.body.name + 
-    'with details: ' + req.body.description);
+    promos.create(req.body)
+    .then((Promo) => {
+        console.log('Promo created', Promo);
+        
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(Promo);
+    }, (err) => next(err))
+    .catch((err) => next(err));
 })
 .put((req, res, next) => {
     res.statusCode = 403;
-    res.end('PUT operation not supported on  promos');
+    res.end('PUT operation not supported on /promos');
 })
 .delete((req, res, next) => {
-    res.end('Deleting all the promos! ');
+    promos.remove({})
+    .then((resp) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(resp);
+    }, (err) => next(err))
+    .catch((err) => next(err));
 });
 
-promoRouter.route('/:promoId')
-.all((req, res, next) => {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    next();
-})
+PromoRouter.route('/:PromoId')
 .get((req, res, next) => {
-    res.end('Will send details of the promo: ' 
-    + req.params.promoId + ' to you!');
+    promos.findById(req.params.PromoId)
+    .then((Promo) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(Promo);
+    }, (err) => next(err))
+    .catch((err) => next(err));
 })
 .post((req, res, next) => {
     res.statusCode = 403;
-    res.end('POST operation not supported on  promos/'
-    + req.params.promoId);  
+    res.end('POST operation not supported on /promos/'
+    + req.params.PromoId);  
 })
 .put((req, res, next) => {
-    res.write('Updating the promo: ' 
-    + req.params.promoId)
-
-    res.end(' Will update the promo: ' + req.body.name 
-    + ' with details ' + req.body.description)
+    promos.findByIdAndUpdate(req.params.PromoId, {
+        $set: req.body
+    }, { new: true})
+    .then((Promo) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(Promo);
+    }, (err) => next(err))
+    .catch((err) => next(err));
 })
 .delete((req, res, next) => {
-    res.end('Deleting promo: ' + req.params.promoId);
+    promos.findByIdAndRemove(req.params.PromoId)
+    .then((resp) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(resp);
+    }, (err) => next(err))
+    .catch((err) => next(err));
 });
 
 
-module.exports = promoRouter;
+PromoRouter.route('/:PromoId/comments')
+.get((req, res, next) => {
+    promos.findById(req.params.PromoId)
+    .then((Promo) => {
+        if (Promo != null){
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.json(Promo.comments);
+        }
+        else {
+            err = new Error('Promo ' + req.params.PromoId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+    }, (err) => next(err))
+    .catch((err) => next(err));
+})
+.post((req, res, next) => {
+    promos.findById(req.params.PromoId)
+    .then((Promo) => {
+        if (Promo != null){
+            Promo.comments.push(req.body);
+            Promo.save()
+            .then((Promo) => {
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                res.json(Promo.comments);
+            })
+        }
+        else {
+            err = new Error('Promo ' + req.params.PromoId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+    }, (err) => next(err))
+    .catch((err) => next(err));
+})
+.put((req, res, next) => {
+    res.statusCode = 403;
+    res.end('PUT operation not supported on /promos/'
+    + req.params.PromoId + '/comments');
+})
+.delete((req, res, next) => {
+    promos.findById(req.params.PromoId)
+    .then((Promo) => {
+        if (Promo != null){
+            for (var i = (Promo.comments.length - 1); i >= 0; i--) {
+                Promo.comments.id(Promo.comments[i]._id).remove();
+            }
+        Promo.save()
+        .then((Promo) => {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.json(Promo);
+        }, (err) => next(err));
+        }
+        else {
+            err = new Error('Promo ' + req.params.PromoId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+    }, (err) => next(err))
+    .catch((err) => next(err));
+});
+
+PromoRouter.route('/:PromoId/comments/:commentId')
+.get((req, res, next) => {
+    promos.findById(req.params.PromoId)
+    .then((Promo) => {
+        if (Promo != null && Promo.comments.id(req.params.commentId) != null){
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.json(Promo.comments.id(req.params.commentId));
+        }
+        else if (Promo == null) {
+            err = new Error('Promo ' + req.params.PromoId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+        else { 
+            err = new Error('Comment ' + req.params.PromoId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+    }, (err) => next(err))
+    .catch((err) => next(err));
+})
+.post((req, res, next) => {
+    res.statusCode = 403;
+    res.end('POST operation not supported on /promos/'
+    + req.params.PromoId + '/comments/' + req.params.commentId);  
+})
+.put((req, res, next) => {
+    promos.findById(req.params.PromoId)
+    .then((Promo) => {
+        if (Promo != null && Promo.comments.id(req.params.commentId) != null) {
+            if (req.body.rating) {
+                Promo.comments.id(req.params.commentId).rating = req.body.rating;
+            }
+            if (req.body.comment) {
+                Promo.comments.id(req.params.commentId).comment = req.body.comment;
+            }
+            Promo.save()
+            .then((Promo) => {
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                res.json(Promo);
+            }, (err) => next(err));
+        }
+        else if (Promo == null) {
+            err = new Error('Promo ' + req.params.PromoId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+        else { 
+            err = new Error('Comment ' + req.params.PromoId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+    }, (err) => next(err))
+    .catch((err) => next(err));
+})
+.delete((req, res, next) => {
+    promos.findById(req.params.PromoId)
+    .then((Promo) => {
+        if (Promo != null && Promo.comments.id(req.params.commentId) != null) {
+        Promo.comments.id(req.params.commentId).remove();
+        Promo.save()
+        .then((Promo) => {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.json(Promo);
+        }, (err) => next(err));
+        }
+        else if (Promo == null) {
+            err = new Error('Promo ' + req.params.PromoId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+        else { 
+            err = new Error('Comment ' + req.params.PromoId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+    }, (err) => next(err))
+    .catch((err) => next(err));
+});
+
+module.exports = PromoRouter;

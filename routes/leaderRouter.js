@@ -1,56 +1,231 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const mongoose = require('mongoose');
 
-const leaderRouter = express.Router();
+const leaders = require('../models/leaders');
 
-leaderRouter.use(bodyParser.json());
+const LeaderRouter = express.Router();
 
-leaderRouter.route('/')
-.all((req, res, next) => {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    next();
-})
+LeaderRouter.use(bodyParser.json());
+
+LeaderRouter.route('/')
 .get((req, res, next) => {
-    res.end('Will send all the leaders to you!');
+    leaders.find({})
+    .then((leaders) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(leaders);
+    }, (err) => next(err))
+    .catch((err) => next(err));
 })
 .post((req, res, next) => {
-    res.end('Will add the leader: ' + req.body.name + 
-    'with details: ' + req.body.description);
+    leaders.create(req.body)
+    .then((Leader) => {
+        console.log('Leader created', Leader);
+        
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(Leader);
+    }, (err) => next(err))
+    .catch((err) => next(err));
 })
 .put((req, res, next) => {
     res.statusCode = 403;
-    res.end('PUT operation not supported on leaders');
+    res.end('PUT operation not supported on /leaders');
 })
 .delete((req, res, next) => {
-    res.end('Deleting all the leaders! ');
+    leaders.remove({})
+    .then((resp) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(resp);
+    }, (err) => next(err))
+    .catch((err) => next(err));
 });
 
-leaderRouter.route('/:leaderId')
-.all((req, res, next) => {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    next();
-})
+LeaderRouter.route('/:LeaderId')
 .get((req, res, next) => {
-    res.end('Will send details of the leader: ' 
-    + req.params.leaderId + ' to you!');
+    leaders.findById(req.params.LeaderId)
+    .then((Leader) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(Leader);
+    }, (err) => next(err))
+    .catch((err) => next(err));
 })
 .post((req, res, next) => {
     res.statusCode = 403;
-    res.end('POST operation not supported on  leaders/'
-    + req.params.leaderId);  
+    res.end('POST operation not supported on /leaders/'
+    + req.params.LeaderId);  
 })
 .put((req, res, next) => {
-    res.write('Updating the leader: ' 
-    + req.params.leaderId)
-
-    res.end(' Will update the leader: ' + req.body.name 
-    + ' with details ' + req.body.description)
+    leaders.findByIdAndUpdate(req.params.LeaderId, {
+        $set: req.body
+    }, { new: true})
+    .then((Leader) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(Leader);
+    }, (err) => next(err))
+    .catch((err) => next(err));
 })
 .delete((req, res, next) => {
-    res.end('Deleting leader: ' + req.params.leaderId);
+    leaders.findByIdAndRemove(req.params.LeaderId)
+    .then((resp) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(resp);
+    }, (err) => next(err))
+    .catch((err) => next(err));
 });
 
 
-module.exports = leaderRouter;
+LeaderRouter.route('/:LeaderId/comments')
+.get((req, res, next) => {
+    leaders.findById(req.params.LeaderId)
+    .then((Leader) => {
+        if (Leader != null){
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.json(Leader.comments);
+        }
+        else {
+            err = new Error('Leader ' + req.params.LeaderId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+    }, (err) => next(err))
+    .catch((err) => next(err));
+})
+.post((req, res, next) => {
+    leaders.findById(req.params.LeaderId)
+    .then((Leader) => {
+        if (Leader != null){
+            Leader.comments.push(req.body);
+            Leader.save()
+            .then((Leader) => {
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                res.json(Leader.comments);
+            })
+        }
+        else {
+            err = new Error('Leader ' + req.params.LeaderId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+    }, (err) => next(err))
+    .catch((err) => next(err));
+})
+.put((req, res, next) => {
+    res.statusCode = 403;
+    res.end('PUT operation not supported on /leaders/'
+    + req.params.LeaderId + '/comments');
+})
+.delete((req, res, next) => {
+    leaders.findById(req.params.LeaderId)
+    .then((Leader) => {
+        if (Leader != null){
+            for (var i = (Leader.comments.length - 1); i >= 0; i--) {
+                Leader.comments.id(Leader.comments[i]._id).remove();
+            }
+        Leader.save()
+        .then((Leader) => {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.json(Leader);
+        }, (err) => next(err));
+        }
+        else {
+            err = new Error('Leader ' + req.params.LeaderId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+    }, (err) => next(err))
+    .catch((err) => next(err));
+});
+
+LeaderRouter.route('/:LeaderId/comments/:commentId')
+.get((req, res, next) => {
+    leaders.findById(req.params.LeaderId)
+    .then((Leader) => {
+        if (Leader != null && Leader.comments.id(req.params.commentId) != null){
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.json(Leader.comments.id(req.params.commentId));
+        }
+        else if (Leader == null) {
+            err = new Error('Leader ' + req.params.LeaderId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+        else { 
+            err = new Error('Comment ' + req.params.LeaderId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+    }, (err) => next(err))
+    .catch((err) => next(err));
+})
+.post((req, res, next) => {
+    res.statusCode = 403;
+    res.end('POST operation not supported on /leaders/'
+    + req.params.LeaderId + '/comments/' + req.params.commentId);  
+})
+.put((req, res, next) => {
+    leaders.findById(req.params.LeaderId)
+    .then((Leader) => {
+        if (Leader != null && Leader.comments.id(req.params.commentId) != null) {
+            if (req.body.rating) {
+                Leader.comments.id(req.params.commentId).rating = req.body.rating;
+            }
+            if (req.body.comment) {
+                Leader.comments.id(req.params.commentId).comment = req.body.comment;
+            }
+            Leader.save()
+            .then((Leader) => {
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                res.json(Leader);
+            }, (err) => next(err));
+        }
+        else if (Leader == null) {
+            err = new Error('Leader ' + req.params.LeaderId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+        else { 
+            err = new Error('Comment ' + req.params.LeaderId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+    }, (err) => next(err))
+    .catch((err) => next(err));
+})
+.delete((req, res, next) => {
+    leaders.findById(req.params.LeaderId)
+    .then((Leader) => {
+        if (Leader != null && Leader.comments.id(req.params.commentId) != null) {
+        Leader.comments.id(req.params.commentId).remove();
+        Leader.save()
+        .then((Leader) => {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.json(Leader);
+        }, (err) => next(err));
+        }
+        else if (Leader == null) {
+            err = new Error('Leader ' + req.params.LeaderId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+        else { 
+            err = new Error('Comment ' + req.params.LeaderId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+    }, (err) => next(err))
+    .catch((err) => next(err));
+});
+
+module.exports = LeaderRouter;
