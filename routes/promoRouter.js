@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
+const authenticate = require('../authenticate')
 
 const promos = require('../models/promotions');
 
@@ -18,7 +19,7 @@ PromoRouter.route('/')
     }, (err) => next(err))
     .catch((err) => next(err));
 })
-.post((req, res, next) => {
+.post(authenticate.verifyUser,(req, res, next) => {
     promos.create(req.body)
     .then((Promo) => {
         console.log('Promo created', Promo);
@@ -29,11 +30,11 @@ PromoRouter.route('/')
     }, (err) => next(err))
     .catch((err) => next(err));
 })
-.put((req, res, next) => {
+.put(authenticate.verifyUser,(req, res, next) => {
     res.statusCode = 403;
     res.end('PUT operation not supported on /promos');
 })
-.delete((req, res, next) => {
+.delete(authenticate.verifyUser,(req, res, next) => {
     promos.remove({})
     .then((resp) => {
         res.statusCode = 200;
@@ -53,12 +54,12 @@ PromoRouter.route('/:PromoId')
     }, (err) => next(err))
     .catch((err) => next(err));
 })
-.post((req, res, next) => {
+.post(authenticate.verifyUser,(req, res, next) => {
     res.statusCode = 403;
     res.end('POST operation not supported on /promos/'
     + req.params.PromoId);  
 })
-.put((req, res, next) => {
+.put(authenticate.verifyUser,(req, res, next) => {
     promos.findByIdAndUpdate(req.params.PromoId, {
         $set: req.body
     }, { new: true})
@@ -69,7 +70,7 @@ PromoRouter.route('/:PromoId')
     }, (err) => next(err))
     .catch((err) => next(err));
 })
-.delete((req, res, next) => {
+.delete( authenticate.verifyUser,(req, res, next) => {
     promos.findByIdAndRemove(req.params.PromoId)
     .then((resp) => {
         res.statusCode = 200;
@@ -97,7 +98,7 @@ PromoRouter.route('/:PromoId/comments')
     }, (err) => next(err))
     .catch((err) => next(err));
 })
-.post((req, res, next) => {
+.post(authenticate.verifyUser,(req, res, next) => {
     promos.findById(req.params.PromoId)
     .then((Promo) => {
         if (Promo != null){
@@ -117,12 +118,12 @@ PromoRouter.route('/:PromoId/comments')
     }, (err) => next(err))
     .catch((err) => next(err));
 })
-.put((req, res, next) => {
+.put(authenticate.verifyUser,(req, res, next) => {
     res.statusCode = 403;
     res.end('PUT operation not supported on /promos/'
     + req.params.PromoId + '/comments');
 })
-.delete((req, res, next) => {
+.delete(authenticate.verifyUser,(req, res, next) => {
     promos.findById(req.params.PromoId)
     .then((Promo) => {
         if (Promo != null){
@@ -167,12 +168,12 @@ PromoRouter.route('/:PromoId/comments/:commentId')
     }, (err) => next(err))
     .catch((err) => next(err));
 })
-.post((req, res, next) => {
+.post(authenticate.verifyUser,(req, res, next) => {
     res.statusCode = 403;
     res.end('POST operation not supported on /promos/'
     + req.params.PromoId + '/comments/' + req.params.commentId);  
 })
-.put((req, res, next) => {
+.put(authenticate.verifyUser,(req, res, next) => {
     promos.findById(req.params.PromoId)
     .then((Promo) => {
         if (Promo != null && Promo.comments.id(req.params.commentId) != null) {
@@ -202,7 +203,7 @@ PromoRouter.route('/:PromoId/comments/:commentId')
     }, (err) => next(err))
     .catch((err) => next(err));
 })
-.delete((req, res, next) => {
+.delete(authenticate.verifyUser,(req, res, next) => {
     promos.findById(req.params.PromoId)
     .then((Promo) => {
         if (Promo != null && Promo.comments.id(req.params.commentId) != null) {
